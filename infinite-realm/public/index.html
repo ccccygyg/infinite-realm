@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>無限詭界：觀測者禁區</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: black; color: #ff0000; font-family: monospace; }
+        .glitch { animation: shake 0.5s infinite; }
+        @keyframes shake { 0% { transform: translate(0px); } 50% { transform: translate(2px); } 100% { transform: translate(-2px); } }
+    </style>
+</head>
+<body class="p-10">
+    <div id="status" class="mb-5 border-b border-red-900 pb-2">SAN: 100% | STATUS: STABLE</div>
+    <div id="game-log" class="h-64 overflow-y-auto mb-10 space-y-2 text-xl">
+        <p>> 系統已啟動...等待觀測樣本行為...</p>
+    </div>
+    <div class="flex gap-4">
+        <button onclick="sendAction('observe')" class="border border-red-600 p-4 hover:bg-red-900 transition">觀察四周</button>
+        <button onclick="sendAction('think')" class="border border-red-600 p-4 hover:bg-red-900 transition">深層思考</button>
+    </div>
+
+    <script>
+        let currentSan = 100;
+        async function sendAction(action) {
+            const res = await fetch('/api/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, san: currentSan })
+            });
+            const data = await res.json();
+            
+            currentSan = data.san;
+            document.getElementById('status').innerText = `SAN: ${data.san}% | STATUS: ${data.status}`;
+            document.getElementById('game-log').innerHTML += `<p class="animate-pulse">> ${data.text}</p>`;
+            
+            if (currentSan < 50) document.body.classList.add('glitch');
+        }
+    </script>
+</body>
+</html>
