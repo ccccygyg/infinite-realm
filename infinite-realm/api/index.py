@@ -1,6 +1,13 @@
+import os
 from flask import Flask, request, jsonify
+import google.generativeai as genai
 
 app = Flask(__name__)
+
+# 從 Vercel 環境變數讀取金鑰
+api_key = os.environ.get("GEMINI_API_KEY")
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-pro')
 
 @app.route('/api/action', methods=['POST'])
 def handle_action():
@@ -8,24 +15,22 @@ def handle_action():
     action = data.get('action')
     current_san = data.get('san', 100)
     
-    # 這裡未來可以接入 AI (Gemini/OpenAI)
-    # 現在我們先用簡單的邏輯模擬
-    new_san = current_san
-    response_text = ""
+    # 這是給 AI 的大腦指令
+    prompt = f"你是一個克蘇魯風格遊戲的敘事者。玩家執行了「{action}」，目前理智值為 {current_san}。請用一段 30 字內充滿壓迫感的文字描述玩家看到的詭異現象。"
 
-    if action == "observe":
-        response_text = "你觀察四周，發現牆壁上有無數隻眼睛在眨動。"
-        new_san -= 10
-    elif action == "think":
-        response_text = "你試圖思考目前的處境，但腦袋裡充滿了刺耳的蟬鳴聲。"
-        new_san -= 5
-    
+    try:
+        response = model.generate_content(prompt)
+        ai_text = response.text
+    except Exception as e:
+        ai_text = "黑暗中傳來刺耳的磨牙聲，你無法理解發生了什麼。"
+
+    # 每次行動扣除 10 點理智
+    new_san = max(0, current_san - 10)
+
     return jsonify({
-        "text": response_text,
-        "san": max(0, new_san),
-        "status": "OBSERVED" if new_san < 50 else "STABLE"
+        "text": ai_text,
+        "san": new_san
     })
 
-# Vercel 需要這個
 def handler(event, context):
     return app(event, context)
