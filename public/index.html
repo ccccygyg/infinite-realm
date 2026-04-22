@@ -12,16 +12,21 @@
             overflow: hidden;
             transition: background-color 0.5s;
         }
-        /* 基礎震動效果 */
         .glitch { animation: shake 0.2s infinite; }
         @keyframes shake { 
             0% { transform: translate(1px, 1px); } 
             50% { transform: translate(-1px, -2px); } 
             100% { transform: translate(1px, 1px); } 
         }
-        /* 高污染視覺干擾 */
         .high-corruption { filter: hue-rotate(90deg) contrast(150%); }
         
+        /* 按鈕冷卻狀態 */
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            border-color: #450a0a;
+        }
+
         #game-log::-webkit-scrollbar { width: 5px; }
         #game-log::-webkit-scrollbar-thumb { background: #450a0a; }
     </style>
@@ -38,10 +43,10 @@
     </div>
 
     <div class="flex gap-6 pb-10">
-        <button onclick="sendAction('observe')" class="border-2 border-red-600 px-6 py-4 hover:bg-red-900 hover:text-white transition-all active:scale-95">
+        <button id="btn-observe" onclick="sendAction('observe')" class="border-2 border-red-600 px-6 py-4 hover:bg-red-900 hover:text-white transition-all active:scale-95">
             觀察四周
         </button>
-        <button onclick="sendAction('think')" class="border-2 border-red-600 px-6 py-4 hover:bg-red-900 hover:text-white transition-all active:scale-95">
+        <button id="btn-think" onclick="sendAction('think')" class="border-2 border-red-600 px-6 py-4 hover:bg-red-900 hover:text-white transition-all active:scale-95">
             深層思考
         </button>
     </div>
@@ -49,8 +54,12 @@
     <script>
         let currentSan = 100;
         let currentCorruption = 0;
+        let isProcessing = false; // 關鍵：防止連點狀態
 
         async function sendAction(action) {
+            if (isProcessing) return; // 如果正在處理，直接退回
+            
+            setLoading(true);
             const logBox = document.getElementById('game-log');
             
             try {
@@ -63,46 +72,59 @@
                         corruption: currentCorruption 
                     })
                 });
+
+                // 處理 429 頻率限制
+                if (res.status === 429) {
+                    addLogEntry("系統警告", "觀測頻率過高，現實維度產生排斥，請稍候 10 秒...", "text-yellow-500");
+                    return;
+                }
                 
                 const data = await res.json();
                 
-                // 更新數值
+                // 更新數據
                 currentSan = data.san;
                 currentCorruption = data.corruption;
 
-                // 更新介面文字
+                // 更新 UI
                 document.getElementById('san-display').innerText = `SAN: ${currentSan}%`;
                 document.getElementById('corruption-display').innerText = `污染度: ${currentCorruption}%`;
                 document.getElementById('status-text').innerText = `STATUS: ${currentSan < 30 ? 'CRITICAL' : 'UNSTABLE'}`;
 
-                // 增加日誌內容
-                const newEntry = document.createElement('p');
-                newEntry.className = "border-l-2 border-red-800 pl-4 py-1 animate-in fade-in duration-700";
-                newEntry.innerHTML = `<span class="text-red-900">[觀測]</span> ${data.text}`;
-                logBox.appendChild(newEntry);
+                // 顯示 AI 文本
+                addLogEntry("觀測", data.text, "text-red-600");
                 
-                // 自動捲動到底部
-                logBox.scrollTop = logBox.scrollHeight;
-
-                // 觸發視覺污染特效
                 handleVisualEffects(currentSan, currentCorruption);
 
             } catch (error) {
                 console.error("觀測失敗:", error);
+                addLogEntry("錯誤", "連結中斷，虛空正在干擾通訊...", "text-gray-600");
+            } finally {
+                setLoading(false); // 結束後恢復按鈕
             }
+        }
+
+        // 輔助函式：新增日誌
+        function addLogEntry(type, text, colorClass) {
+            const logBox = document.getElementById('game-log');
+            const newEntry = document.createElement('p');
+            newEntry.className = `border-l-2 border-red-800 pl-4 py-1 animate-in fade-in duration-700`;
+            newEntry.innerHTML = `<span class="${colorClass}">[${type}]</span> ${text}`;
+            logBox.appendChild(newEntry);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        // 輔助函式：鎖定/解鎖按鈕
+        function setLoading(loading) {
+            isProcessing = loading;
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(btn => btn.disabled = loading);
         }
 
         function handleVisualEffects(san, corruption) {
             const body = document.body;
-            
-            // SAN值低於50開始震動
-            if (san < 50) {
-                body.classList.add('glitch');
-            } else {
-                body.classList.remove('glitch');
-            }
+            if (san < 50) body.classList.add('glitch');
+            else body.classList.remove('glitch');
 
-            // 污染度高於60色調偏移
             if (corruption > 60) {
                 body.classList.add('high-corruption');
                 body.style.backgroundColor = "#050005";
